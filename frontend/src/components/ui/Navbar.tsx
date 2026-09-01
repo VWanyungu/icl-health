@@ -53,7 +53,7 @@ export default function Navbar() {
           {isAuthenticated && user ? (
             <div className="flex items-center gap-3">
               <div className="hidden sm:flex flex-col text-right">
-                <span className="text-xs font-semibold text-gray-900">{user.name}</span>
+                <span className="text-xs font-semibold text-gray-900">{user.firstname}</span>
                 <span className="text-2xs text-gray-500">{user.role || user.email}</span>
               </div>
 
@@ -71,7 +71,7 @@ export default function Navbar() {
               )} */}
 
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-indigo-700 font-semibold text-xs border border-indigo-200">
-                {user.name.charAt(0) || <UserIcon className="h-4 w-4" />}
+                {user.firstname.charAt(0) || <UserIcon className="h-4 w-4" />}
               </div>
 
             </div>
