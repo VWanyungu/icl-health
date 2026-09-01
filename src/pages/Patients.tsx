@@ -16,79 +16,16 @@ import {
     ChevronLeft,
     ChevronRight,
     ChevronDown,
-    Calendar,
     X,
     MoreVertical,
-    Activity,
-    FileText,
-    Scale,
-    User,
-    ArrowUpRight,
 } from 'lucide-react'
-import { usePatients, type Patient } from '../hooks/usePatients.tsx'
-
-function PatientActionDropdown({ patientId }: { patientId: string }) {
-    const [isOpen, setIsOpen] = useState(false)
-    const dropdownRef = useRef<HTMLDivElement>(null)
-
-    useEffect(() => {
-        function handleClickOutside(event: MouseEvent) {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false)
-            }
-        }
-        if (isOpen) {
-            document.addEventListener('mousedown', handleClickOutside)
-        }
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside)
-        }
-    }, [isOpen])
-
-    return (
-        <div className="relative inline-block text-left" ref={dropdownRef}>
-            <button
-                type="button"
-                onClick={() => setIsOpen((prev) => !prev)}
-                className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
-                title="Open patient actions"
-                aria-expanded={isOpen}
-            >
-                <MoreVertical className="h-4 w-4" />
-            </button>
-
-            {isOpen && (
-                <div className="absolute right-0 top-full z-50 mt-1 w-56 origin-top-right border border-gray-100 bg-white shadow-xl ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-800">
-                    <div className="px-4.5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-                        Patient Actions
-                    </div>
-                    <Link
-                        to={`/patients`}
-                        onClick={() => setIsOpen(false)}
-                        className="border-y border-gray-100 flex items-center gap-2.5 px-3 py-4 text-xs font-medium text-gray-700 transition hover:bg-gray-50 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700/60 dark:hover:text-gray-400"
-                    >
-                        <span>Single Patient View</span>
-                    </Link>
-                    <Link
-                        to={`/vitals/${patientId}`}
-                        onClick={() => setIsOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-4 text-xs font-medium text-gray-700 transition hover:bg-gray-50 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700/60 dark:hover:text-gray-400"
-                    >
-                        <span>Assess</span>
-                    </Link>
-                </div>
-            )}
-        </div>
-    )
-}
+import { usePatients, type DashboardPatient } from '../hooks/usePatients.tsx'
 
 export default function Patients() {
     const { patients } = usePatients()
     const [rowSelection, setRowSelection] = useState<RowSelectionState>({ '1': true }) // Row 1 selected by default to match demo
     const [globalFilter, setGlobalFilter] = useState('')
-    const [selectedYear, setSelectedYear] = useState('2024')
-    const [selectedMonth, setSelectedMonth] = useState('All')
-    const [specificDate, setSpecificDate] = useState('')
+    const [assessmentDate, setAssessmentDate] = useState('')
     const [categoryFilter, setCategoryFilter] = useState<'all' | 'today' | 'overweight' | 'normal' | 'underweight'>('all')
 
     // Compute summary stats dynamically
@@ -124,20 +61,7 @@ export default function Patients() {
 
             // Date filter check
             if (patient.lastAssessmentDate) {
-                const [year, month] = patient.lastAssessmentDate.split('-')
-
-                if (selectedYear !== 'All' && year !== selectedYear) {
-                    return false
-                }
-
-                if (selectedMonth !== 'All') {
-                    const monthNum = parseInt(month, 10).toString()
-                    if (monthNum !== selectedMonth) {
-                        return false
-                    }
-                }
-
-                if (specificDate && patient.lastAssessmentDate !== specificDate) {
+                if (assessmentDate && patient.lastAssessmentDate !== assessmentDate) {
                     return false
                 }
             }
@@ -145,62 +69,38 @@ export default function Patients() {
             // Global search check (name or MRN)
             if (globalFilter.trim()) {
                 const query = globalFilter.toLowerCase()
-                const matchName = patient.name.toLowerCase().includes(query)
-                const matchMrn = patient.mrn?.toLowerCase().includes(query)
-                return matchName || matchMrn
+                const matchFirstName = patient.firstname.toLowerCase().includes(query)
+                const matchLastName = patient.lastname.toLowerCase().includes(query)
+                const matchMrn = patient.unique?.toLowerCase().includes(query)
+                return matchFirstName || matchLastName || matchMrn
             }
 
             return true
         })
-    }, [patients, selectedYear, selectedMonth, specificDate, globalFilter, categoryFilter])
+    }, [patients, assessmentDate, globalFilter, categoryFilter])
 
-
-    // Table column definitions
-    const columns = useMemo<ColumnDef<Patient>[]>(
+    const columns = useMemo<ColumnDef<DashboardPatient>[]>(
         () => [
-            // {
-            //     id: 'select',
-            //     header: ({ table }) => (
-            //         <div className="flex items-center justify-center">
-            //             <input
-            //                 type="checkbox"
-            //                 checked={table.getIsAllPageRowsSelected()}
-            //                 onChange={(e) => table.toggleAllPageRowsSelected(!!e.target.checked)}
-            //                 aria-label="Select all rows"
-            //                 className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
-            //             />
-            //         </div>
-            //     ),
-            //     cell: ({ row }) => (
-            //         <div className="flex items-center justify-center">
-            //             <input
-            //                 type="checkbox"
-            //                 checked={row.getIsSelected()}
-            //                 onChange={(e) => row.toggleSelected(!!e.target.checked)}
-            //                 aria-label="Select row"
-            //                 className="h-4 w-4 rounded border-gray-300 text-teal-600 focus:ring-teal-500 cursor-pointer accent-teal-600"
-            //             />
-            //         </div>
-            //     ),
-            //     enableSorting: false,
-            // },
             {
                 accessorKey: 'name',
                 header: 'Patient Name',
                 cell: ({ row }) => (
                     <span className="font-medium text-gray-800 dark:text-gray-100">
-                        {row.original.name}
+                        {row.original.firstname + " " + row.original.lastname}
                     </span>
                 ),
             },
             {
                 accessorKey: 'age',
                 header: 'Age',
-                cell: ({ row }) => (
-                    <span className="text-gray-700 dark:text-gray-300">
-                        {row.original.age} yrs
-                    </span>
-                ),
+                cell: ({ row }) => {
+                    const age = new Date().getFullYear() - new Date(row.original.dob).getFullYear()
+                    return (
+                        <span className="text-gray-700 dark:text-gray-300">
+                            {age} yrs
+                        </span>
+                    )
+                },
             },
             {
                 accessorKey: 'bmi',
@@ -238,7 +138,7 @@ export default function Patients() {
                 header: 'Actions',
                 cell: ({ row }) => (
                     <div className="flex items-center justify-end pr-2">
-                        <PatientActionDropdown patientId={row.original.id} />
+                        <PatientActionDropdown patientId={String(row.original.id)} />
                     </div>
                 ),
             },
@@ -260,36 +160,32 @@ export default function Patients() {
         getFilteredRowModel: getFilteredRowModel(),
         initialState: {
             pagination: {
-                pageSize: 10,
+                pageSize: 5,
             },
         },
     })
 
     const exportCSV = () => {
         const headers = ['Patient Name', 'Age', 'BMI', 'Last Assessment Date']
-        const rows = filteredData.map((p) => [p.name, p.age, p.bmi, p.lastAssessmentDate])
+        const rows = filteredData.map((p) => [p.firstname + " " + p.lastname, p.dob, p.bmi, p.lastAssessmentDate])
         const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n')
         const encodedUri = encodeURI(csvContent)
         const link = document.createElement('a')
         link.setAttribute('href', encodedUri)
-        link.setAttribute('download', `patients_assessment_${selectedYear}.csv`)
+        link.setAttribute('download', `patients_assessment_${new Date().toISOString().split('T')[0]}.csv`)
         document.body.appendChild(link)
         link.click()
         document.body.removeChild(link)
     }
 
     const clearFilters = () => {
-        setSelectedYear('All')
-        setSelectedMonth('All')
-        setSpecificDate('')
+        setAssessmentDate('')
         setGlobalFilter('')
         setCategoryFilter('all')
     }
 
     const hasActiveFilters =
-        selectedYear !== 'All' ||
-        selectedMonth !== 'All' ||
-        specificDate !== '' ||
+        assessmentDate !== '' ||
         globalFilter !== '' ||
         categoryFilter !== 'all'
 
@@ -306,11 +202,10 @@ export default function Patients() {
                 {/* 1. Today's Visits */}
                 <div
                     onClick={() => setCategoryFilter(categoryFilter === 'today' ? 'all' : 'today')}
-                    className={`group cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-sm ${
-                        categoryFilter === 'today'
-                            ? 'border-amber-500 bg-amber-50/20 ring-2 ring-amber-500/20 dark:bg-amber-950/20'
-                            : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
-                    }`}
+                    className={`group cursor-pointer border p-5 transition-all hover:shadow-sm ${categoryFilter === 'today'
+                        ? 'border-amber-100 bg-amber-50/20 dark:bg-amber-950/20'
+                        : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
+                        }`}
                 >
                     <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
@@ -325,9 +220,9 @@ export default function Patients() {
                         <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                             {summaryStats.todaysVisits}
                         </span>
-                        <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        {/* <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                             <ArrowUpRight className="h-4 w-4" /> 20
-                        </span>
+                        </span> */}
                     </div>
                     <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                         Shows total clinical assessments and visits logged for today.
@@ -337,11 +232,10 @@ export default function Patients() {
                 {/* 2. Overweight */}
                 <div
                     onClick={() => setCategoryFilter(categoryFilter === 'overweight' ? 'all' : 'overweight')}
-                    className={`group cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-sm ${
-                        categoryFilter === 'overweight'
-                            ? 'border-amber-500 bg-amber-50/20 ring-2 ring-amber-500/20 dark:bg-amber-950/20'
-                            : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
-                    }`}
+                    className={`group cursor-pointer border p-5 transition-all hover:shadow-sm ${categoryFilter === 'overweight'
+                        ? 'border-amber-100 bg-amber-50/20 dark:bg-amber-950/20'
+                        : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
+                        }`}
                 >
                     <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
@@ -356,9 +250,9 @@ export default function Patients() {
                         <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                             {summaryStats.overweight}
                         </span>
-                        <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        {/* <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                             <ArrowUpRight className="h-4 w-4" /> {Math.round((summaryStats.overweight / (patients.length || 1)) * 100)}%
-                        </span>
+                        </span> */}
                     </div>
                     <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                         Patients with BMI ≥ 25.0 to track clinical weight management.
@@ -368,11 +262,10 @@ export default function Patients() {
                 {/* 3. Normal BMI */}
                 <div
                     onClick={() => setCategoryFilter(categoryFilter === 'normal' ? 'all' : 'normal')}
-                    className={`group cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-sm ${
-                        categoryFilter === 'normal'
-                            ? 'border-amber-500 bg-amber-50/20 ring-2 ring-amber-500/20 dark:bg-amber-950/20'
-                            : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
-                    }`}
+                    className={`group cursor-pointer border p-5 transition-all hover:shadow-sm ${categoryFilter === 'normal'
+                        ? 'border-amber-100 bg-amber-50/20 dark:bg-amber-950/20'
+                        : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
+                        }`}
                 >
                     <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
@@ -387,9 +280,9 @@ export default function Patients() {
                         <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                             {summaryStats.normal}
                         </span>
-                        <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        {/* <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                             <ArrowUpRight className="h-4 w-4" /> {Math.round((summaryStats.normal / (patients.length || 1)) * 100)}%
-                        </span>
+                        </span> */}
                     </div>
                     <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                         Patients maintaining a healthy weight range (BMI 18.5 - 24.9).
@@ -399,11 +292,10 @@ export default function Patients() {
                 {/* 4. Underweight */}
                 <div
                     onClick={() => setCategoryFilter(categoryFilter === 'underweight' ? 'all' : 'underweight')}
-                    className={`group cursor-pointer rounded-2xl border p-5 transition-all hover:shadow-sm ${
-                        categoryFilter === 'underweight'
-                            ? 'border-amber-500 bg-amber-50/20 ring-2 ring-amber-500/20 dark:bg-amber-950/20'
-                            : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
-                    }`}
+                    className={`group cursor-pointer border p-5 transition-all hover:shadow-sm ${categoryFilter === 'underweight'
+                        ? 'border-amber-100 bg-amber-50/20 dark:bg-amber-950/20'
+                        : 'border-gray-100 bg-white hover:border-gray-200 dark:border-gray-800 dark:bg-gray-900'
+                        }`}
                 >
                     <div className="mb-4 flex items-center justify-between">
                         <div className="flex items-center gap-2.5">
@@ -418,9 +310,9 @@ export default function Patients() {
                         <span className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-white">
                             {summaryStats.underweight}
                         </span>
-                        <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                        {/* <span className="inline-flex items-center gap-0.5 text-sm font-semibold text-emerald-600 dark:text-emerald-400">
                             <ArrowUpRight className="h-4 w-4" /> {Math.round((summaryStats.underweight / (patients.length || 1)) * 100)}%
-                        </span>
+                        </span> */}
                     </div>
                     <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
                         Patients with BMI &lt; 18.5 requiring nutritional assessment.
@@ -440,7 +332,7 @@ export default function Patients() {
                         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">
                             {totalItems} registered patients
                             {categoryFilter !== 'all' && (
-                                <span className="ml-1.5 inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-2xs font-semibold text-amber-800 border border-amber-200">
+                                <span className="ml-1.5 inline-flex items-center px-2 py-0.5 text-2xs font-semibold text-amber-800">
                                     Filtered by: {categoryFilter}
                                 </span>
                             )}
@@ -449,51 +341,13 @@ export default function Patients() {
 
                     {/* Right Toolbar Filters */}
                     <div className="flex flex-wrap items-center gap-2.5">
-                        {/* Year Dropdown */}
-                        {/* <div className="relative">
-                            <select
-                                value={selectedYear}
-                                onChange={(e) => setSelectedYear(e.target.value)}
-                                className="h-10 appearance-none  border border-gray-200 bg-gray-50/80 px-3.5 pr-8 text-xs font-medium text-gray-700 transition hover:bg-gray-100 focus:border-teal-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                            >
-                                <option value="All">All Years</option>
-                                <option value="2024">2024</option>
-                                <option value="2023">2023</option>
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-2.5 top-3 h-4 w-4 text-gray-400" />
-                        </div> */}
-
-                        {/* Month Dropdown */}
-                        {/* <div className="relative">
-                            <select
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(e.target.value)}
-                                className="h-10 appearance-none  border border-gray-200 bg-gray-50/80 px-3.5 pr-8 text-xs font-medium text-gray-700 transition hover:bg-gray-100 focus:border-teal-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
-                            >
-                                <option value="All">All Months</option>
-                                <option value="1">January</option>
-                                <option value="2">February</option>
-                                <option value="3">March</option>
-                                <option value="4">April</option>
-                                <option value="5">May</option>
-                                <option value="6">June</option>
-                                <option value="7">July</option>
-                                <option value="8">August</option>
-                                <option value="9">September</option>
-                                <option value="10">October</option>
-                                <option value="11">November</option>
-                                <option value="12">December</option>
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-2.5 top-3 h-4 w-4 text-gray-400" />
-                        </div> */}
-
-                        {/* Specific Date Filter */}
+                        {/* Assessment Date Filter */}
                         <div className="relative flex flex-col items-start gap-1">
                             {/* <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Date:</span> */}
                             <input
                                 type="date"
-                                value={specificDate}
-                                onChange={(e) => setSpecificDate(e.target.value)}
+                                value={assessmentDate}
+                                onChange={(e) => setAssessmentDate(e.target.value)}
                                 className="h-10  border border-gray-200 bg-gray-50/80 px-3 py-1 text-xs text-gray-700 transition focus:border-teal-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                                 title="Filter by exact assessment date"
                             />
@@ -566,14 +420,9 @@ export default function Patients() {
                         <tbody className='divide-y divide-gray-100'>
                             {table.getRowModel().rows.length > 0 ? (
                                 table.getRowModel().rows.map((row) => {
-                                    const isSelected = row.getIsSelected()
                                     return (
                                         <tr
                                             key={row.id}
-                                            // className={`group transition-all duration-150 ${isSelected
-                                            //     ? 'bg-amber-100/90 font-medium text-amber-950 dark:bg-amber-950/40 dark:text-amber-200 rounded-2xl shadow-xs'
-                                            //     : 'hover:bg-gray-50/80 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-200'
-                                            //     }`}
                                             className={`group transition-all duration-150
                                                 hover:bg-gray-50/80 dark:hover:bg-gray-800/40 text-gray-700 dark:text-gray-200`}
                                         >
@@ -600,13 +449,12 @@ export default function Patients() {
                                         className="py-12 text-center text-xs text-gray-500 dark:text-gray-400"
                                     >
                                         <div className="flex flex-col items-center justify-center gap-2">
-                                            <Calendar className="h-8 w-8 text-gray-300 dark:text-gray-600" />
                                             <p>No patients found matching the selected criteria.</p>
                                             {hasActiveFilters && (
                                                 <button
                                                     type="button"
                                                     onClick={clearFilters}
-                                                    className="mt-1 text-xs font-semibold text-teal-600 hover:underline dark:text-teal-400"
+                                                    className="cursor-pointer mt-1 text-xs font-semibold text-teal-600 hover:underline dark:text-teal-400"
                                                 >
                                                     Clear all filters
                                                 </button>
@@ -630,7 +478,7 @@ export default function Patients() {
                                 onChange={(e) => {
                                     table.setPageSize(Number(e.target.value))
                                 }}
-                                className="appearance-none rounded-lg border border-gray-200 bg-white py-1 pl-2.5 pr-6 text-xs font-medium text-gray-700 shadow-xs focus:border-teal-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                                className="appearance-none border border-gray-200 bg-white py-1 pl-2.5 pr-6 text-xs font-medium text-gray-700 shadow-xs focus:border-teal-500 focus:outline-none dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200"
                             >
                                 {[5, 10, 20, 50].map((pageSizeOption) => (
                                     <option key={pageSizeOption} value={pageSizeOption}>
@@ -652,7 +500,7 @@ export default function Patients() {
                                 type="button"
                                 onClick={() => table.previousPage()}
                                 disabled={!table.getCanPreviousPage()}
-                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                className="cursor-pointer flex h-7 w-7 items-center justify-center border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                                 aria-label="Previous page"
                             >
                                 <ChevronLeft className="h-4 w-4" />
@@ -661,7 +509,7 @@ export default function Patients() {
                                 type="button"
                                 onClick={() => table.nextPage()}
                                 disabled={!table.getCanNextPage()}
-                                className="flex h-7 w-7 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                                className="cursor-pointer flex h-7 w-7 items-center justify-center border border-gray-200 bg-white text-gray-600 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
                                 aria-label="Next page"
                             >
                                 <ChevronRight className="h-4 w-4" />
@@ -670,6 +518,61 @@ export default function Patients() {
                     </div>
                 </div>
             </div>
+        </div>
+    )
+}
+
+function PatientActionDropdown({ patientId }: { patientId: string }) {
+    const [isOpen, setIsOpen] = useState(false)
+    const dropdownRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        function handleClickOutside(event: MouseEvent) {
+            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+                setIsOpen(false)
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside)
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [isOpen])
+
+    return (
+        <div className="relative inline-block text-left" ref={dropdownRef}>
+            <button
+                type="button"
+                onClick={() => setIsOpen((prev) => !prev)}
+                className="cursor-pointer flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-gray-800 dark:hover:text-gray-200"
+                title="Open patient actions"
+                aria-expanded={isOpen}
+            >
+                <MoreVertical className="h-4 w-4" />
+            </button>
+
+            {isOpen && (
+                <div className="absolute right-0 top-full z-50 mt-1 w-56 origin-top-right border border-gray-100 bg-white shadow-xl ring-1 ring-black/5 dark:border-gray-700 dark:bg-gray-800">
+                    <div className="px-4.5 pt-3 pb-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                        Patient Actions
+                    </div>
+                    <Link
+                        to={`/patients`}
+                        onClick={() => setIsOpen(false)}
+                        className="border-y border-gray-100 flex items-center gap-2.5 px-3 py-4 text-xs font-medium text-gray-700 transition hover:bg-gray-50 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700/60 dark:hover:text-gray-400"
+                    >
+                        <span>Single Patient View</span>
+                    </Link>
+                    <Link
+                        to={`/vitals/${patientId}`}
+                        onClick={() => setIsOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-4 text-xs font-medium text-gray-700 transition hover:bg-gray-50 hover:text-gray-900 dark:text-gray-200 dark:hover:bg-gray-700/60 dark:hover:text-gray-400"
+                    >
+                        <span>Assess</span>
+                    </Link>
+                </div>
+            )}
         </div>
     )
 }

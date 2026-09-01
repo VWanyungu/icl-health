@@ -2,10 +2,11 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import './index.css'
+import 'react-toastify/dist/ReactToastify.css'
+import { ToastContainer } from 'react-toastify'
 import { AuthProvider } from './context/AuthContext.tsx'
 import Protected from './components/Protected.tsx'
 import Layout from './components/Layout.tsx'
-import App from './App.tsx'
 import Login from './pages/auth/Login.tsx'
 import SignUp from './pages/auth/SignUp.tsx'
 import PatientRegistration from './pages/PatientRegistration.tsx'
@@ -40,8 +41,10 @@ createRoot(document.getElementById('root')!).render(
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
+        <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} />
       </BrowserRouter>
     </AuthProvider>
   </StrictMode>
 )
+
 

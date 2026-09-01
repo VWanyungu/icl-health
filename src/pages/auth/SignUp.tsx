@@ -1,16 +1,12 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { useAuth } from '../../context/AuthContext.tsx'
-import AuthBrand from '../../components/auth/AuthBrand.tsx'
-import GoogleButton from '../../components/auth/GoogleButton.tsx'
 import hospitalImg from '../../assets/hospital-auth.jpg'
 import {
   Check,
   Eye,
   EyeOff,
   AlertCircle,
-  Activity,
-  ShieldCheck,
 } from 'lucide-react'
 
 export default function SignUp() {
@@ -26,7 +22,6 @@ export default function SignUp() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [emailPreferences, setEmailPreferences] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -48,7 +43,7 @@ export default function SignUp() {
     try {
       setError(null)
       setLoading(true)
-      await signup(email, password, { emailPreferences })
+      await signup(email, password, { emailPreferences: true })
       navigate('/patients', { replace: true })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Registration failed. Please try again.'
@@ -85,7 +80,21 @@ export default function SignUp() {
 
         {/* Top Branding */}
         <div className="relative z-10">
-          <AuthBrand variant="dark" size="lg" />
+          <Link to="/" className="inline-flex items-center gap-2.5 group transition-transform active:scale-95">
+            <div className="flex items-baseline gap-1">
+              <span
+                className={`text-white font-black tracking-tight text-lg`}
+              >
+                ICL
+              </span>
+              <span
+                className={`text-indigo-600 font-semibold tracking-tight text-lg
+                `}
+              >
+                Health
+              </span>
+            </div>
+          </Link>
         </div>
 
         {/* Center / Hero Branding Section */}
@@ -107,7 +116,7 @@ export default function SignUp() {
         {/* Left Bottom Trust Statement */}
         <div className="relative z-10 flex items-center gap-2 text-xs font-medium text-gray-300">
           {/* <ShieldCheck className="h-4 w-4 text-indigo-400 shrink-0" /> */}
-          <span>Assessment aid</span>
+          <span>Patient Assessment Tool</span>
         </div>
       </div>
 
@@ -131,12 +140,23 @@ export default function SignUp() {
           {/* Header Title */}
           <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold tracking-tight text-indigo-600 sm:text-3xl">
-              Sign up for ICL Health
+              Sign up
             </h2>
           </div>
 
           {/* Google Sign In Button */}
-          <GoogleButton onClick={handleGoogleSignup} disabled={loading} />
+          <button
+            type="button"
+            onClick={handleGoogleSignup}
+            disabled={loading}
+            className="group relative flex w-full items-center justify-center gap-3 border border-gray-300 bg-white px-5 py-3 text-sm font-medium text-gray-700 shadow-xs transition-all hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+          >
+            {loading && (
+              <div className="h-4 w-4 animate-spin border-2 border-indigo-600 border-t-transparent" />
+            )}
+
+            <span className="font-medium text-gray-700">Continue with Google</span>
+          </button>
 
           {/* Divider */}
           <div className="relative my-6">
@@ -171,7 +191,7 @@ export default function SignUp() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 hover:border-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                className="w-full border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 hover:border-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
               />
             </div>
 
@@ -189,7 +209,7 @@ export default function SignUp() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Password"
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 hover:border-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
+                  className="w-full border border-gray-300 bg-white px-3.5 py-2.5 pr-10 text-sm text-gray-900 shadow-xs transition-all placeholder:text-gray-400 hover:border-gray-400 focus:border-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-600/20"
                 />
                 <button
                   type="button"
@@ -250,11 +270,11 @@ export default function SignUp() {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative flex w-full items-center justify-center rounded-full border border-indigo-600/30 bg-white px-5 py-3 text-sm font-semibold text-indigo-700 shadow-xs transition-all hover:bg-indigo-50 hover:border-indigo-600/50 hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+                className="group relative flex w-full items-center justify-center border border-indigo-600/30 bg-white px-5 py-3 text-sm font-semibold text-indigo-700 shadow-xs transition-all hover:bg-indigo-50 hover:border-indigo-600/50 hover:text-indigo-800 focus:outline-none focus:ring-2 focus:ring-indigo-600/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
               >
                 {loading ? (
                   <div className="flex items-center gap-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                    <div className="h-4 w-4 animate-spin border-2 border-indigo-600 border-t-transparent" />
                     <span>Creating account...</span>
                   </div>
                 ) : (
@@ -263,10 +283,10 @@ export default function SignUp() {
               </button>
             </div>
           </form>
-        </div>
+        </div >
 
         {/* Footer Disclaimer */}
-        <div className="mx-auto max-w-[480px] pb-4 text-center text-2xs text-gray-400 leading-relaxed">
+        < div className="mx-auto max-w-[480px] pb-4 text-center text-2xs text-gray-400 leading-relaxed" >
           <p>
             By creating an account, you agree to the{' '}
             <a href="#terms" className="text-gray-600 hover:text-indigo-600 underline">
@@ -285,8 +305,8 @@ export default function SignUp() {
             </a>
             .
           </p> */}
-        </div>
-      </div>
-    </div>
+        </div >
+      </div >
+    </div >
   )
 }

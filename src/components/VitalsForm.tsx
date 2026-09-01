@@ -1,33 +1,30 @@
-import { useState, useId } from 'react'
+import { useState, useId, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { toast } from 'react-toastify'
 import bannerImg from '../assets/assessment-banner.jpg'
 import { usePatients } from '../hooks/usePatients.tsx'
+import { calculateAge } from '../lib/utils/calculateAge.tsx'
+import { vitalsDb } from '../lib/database.tsx'
 
 export interface VitalsFormData {
-  date: string
-  systolic: string
-  diastolic: string
-  heartRate: string
-  respiratoryRate: string
-  temperature: string
-  oxygenSaturation: string
+  visit_date: string
   weight: string
   bmi: number
   height: string
-  notes: string
+  patient_id: string
 }
 
 export default function VitalsForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { patients } = usePatients()
+  const { getPatientById } = usePatients()
   const formId = useId()
 
-  const currentPatient = patients.find((p) => p.id === id) || {
-    id: id || '1',
-    name: 'Patient Record',
-    age: 32,
-    mrn: '521',
+  const currentPatient = (id ? getPatientById(id) : undefined) || {
+    id: 1,
+    firstname: "John",
+    lastname: "Doe",
+    dob: "1992-05-14",
   }
 
   const initialWeight = 70
@@ -35,20 +32,25 @@ export default function VitalsForm() {
   const initialBmi = initialWeight / ((initialHeight / 100) * (initialHeight / 100))
 
   const [formData, setFormData] = useState<VitalsFormData>({
-    date: new Date().toISOString().split('T')[0],
-    bmi: initialBmi,
-    systolic: '120',
-    diastolic: '80',
-    heartRate: '72',
-    respiratoryRate: '16',
-    temperature: '36.8',
-    oxygenSaturation: '98',
+    visit_date: new Date().toISOString().split('T')[0],
     weight: String(initialWeight),
     height: String(initialHeight),
-    notes: '',
+    bmi: initialBmi,
+    patient_id: id || '1',
   })
 
-  const [submitted, setSubmitted] = useState(false)
+  const [isAlreadySubmitted, setIsAlreadySubmitted] = useState(false)
+
+  useEffect(() => {
+    const patientId = id || String(currentPatient.id)
+    const alreadySubmitted = vitalsDb.hasSubmissionToday(patientId, formData.visit_date)
+    setIsAlreadySubmitted(alreadySubmitted)
+    if (alreadySubmitted) {
+      toast.info('Vitals have already been submitted for this patient today.', {
+        toastId: `vitals-${patientId}-${formData.visit_date}`,
+      })
+    }
+  }, [id, currentPatient.id, formData.visit_date])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -63,14 +65,28 @@ export default function VitalsForm() {
     setFormData((prev) => ({ ...prev, [name]: value, bmi }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
-    const targetPatientId = id || currentPatient.id
-    const currentBmi = formData.bmi
+    const targetPatientId = id || String(currentPatient.id)
+
+    if (vitalsDb.hasSubmissionToday(targetPatientId, formData.visit_date)) {
+      toast.info('Vitals have already been submitted for this patient today.')
+      setIsAlreadySubmitted(true)
+      return
+    }
+
+    const response = await vitalsDb.saveVitals({
+      patient_id: targetPatientId,
+      visit_date: formData.visit_date,
+      weight: formData.weight,
+      height: formData.height,
+      bmi: formData.bmi,
+    })
+
+    toast.success(response.data.message || 'Patient vitals saved successfully!')
 
     setTimeout(() => {
-      if (currentBmi <= 25) {
+      if (formData.bmi <= 25) {
         navigate(`/general-assessment/${targetPatientId}`)
       } else {
         navigate(`/overweight-assessment/${targetPatientId}`)
@@ -102,7 +118,7 @@ export default function VitalsForm() {
               Vitals Assessment
             </h2>
             <p className="mt-2 text-xs font-medium text-white/80 leading-relaxed">
-              Record vital signs, blood pressure, and core biometrics for {currentPatient.name}.
+              Record vital signs, blood pressure, and core biometrics for {currentPatient.firstname}.
             </p>
           </div>
         </div>
@@ -119,18 +135,13 @@ export default function VitalsForm() {
                   </h1>
                   <div className='flex items-center gap-2 mt-2 '>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Patient: <strong className="text-gray-800 dark:text-gray-200">{currentPatient.name}</strong>
+                      Patient: <strong className="text-gray-800 dark:text-gray-200">{currentPatient.firstname} {currentPatient.lastname}</strong>
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Age: {currentPatient.age} yrs
+                      Age: {calculateAge(currentPatient.dob)} yrs
                     </p>
                   </div>
                 </div>
-                {submitted && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Saved! Redirecting...
-                  </span>
-                )}
               </div>
 
               {/* Form Grid */}
@@ -143,8 +154,8 @@ export default function VitalsForm() {
                   <input
                     id={`${formId}-date`}
                     type="date"
-                    name="date"
-                    value={formData.date}
+                    name="visit_date"
+                    value={formData.visit_date}
                     onChange={handleChange}
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                     required
@@ -186,7 +197,7 @@ export default function VitalsForm() {
                   />
                 </div>
 
-                {/* Height */}
+                {/* BMI */}
                 <div>
                   <label htmlFor={`${formId}-bmi`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     BMI
@@ -197,28 +208,11 @@ export default function VitalsForm() {
                     name="bmi"
                     disabled
                     value={formData.bmi.toFixed(2)}
-                    onChange={handleChange}
-                    placeholder="e.g. 175"
+                    placeholder="e.g. 22.8"
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                     required
                   />
                 </div>
-
-                {/* Clinical Notes */}
-                {/* <div className="sm:col-span-2">
-                  <label htmlFor={`${formId}-notes`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Observations / Clinical Notes
-                  </label>
-                  <textarea
-                    id={`${formId}-notes`}
-                    name="notes"
-                    rows={3}
-                    value={formData.notes}
-                    onChange={handleChange}
-                    placeholder="Enter any additional observations or notes..."
-                    className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                  />
-                </div> */}
               </div>
             </div>
 
@@ -233,9 +227,11 @@ export default function VitalsForm() {
               </button>
               <button
                 type="submit"
-                className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                disabled={isAlreadySubmitted}
+                className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={isAlreadySubmitted ? 'Assessment already submitted for today' : ''}
               >
-                Next
+                {isAlreadySubmitted ? 'Already Submitted' : 'Next'}
               </button>
             </div>
           </form>
@@ -246,3 +242,4 @@ export default function VitalsForm() {
 }
 
 export { VitalsForm }
+

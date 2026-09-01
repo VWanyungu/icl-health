@@ -1,6 +1,6 @@
 import { Link, NavLink, useNavigate } from 'react-router'
 import { useAuth } from '../../context/AuthContext.tsx'
-import { Activity, LogOut, User as UserIcon } from 'lucide-react'
+import { LogOut, User as UserIcon } from 'lucide-react'
 
 export default function Navbar() {
   const { user, isAuthenticated, logout } = useAuth()

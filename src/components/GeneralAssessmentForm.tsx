@@ -1,50 +1,58 @@
-import { useState, useId } from 'react'
+import { useState, useId, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { toast } from 'react-toastify'
 import bannerImg from '../assets/assessment-banner.jpg'
 import { usePatients } from '../hooks/usePatients.tsx'
+import { calculateAge } from '../lib/utils/calculateAge.tsx'
+import { generalAssessmentDb, STORAGE_VITAL_ID_KEY } from '../lib/database.tsx'
 
 export interface GeneralAssessmentData {
-  chiefComplaint: string
-  duration: string
-  bloodGlucose: string
-  generalHealth: string
-  allergies: string
-  medications: string
-  smokingStatus: string
-  activityLevel: string
-  assessmentNotes: string
-  date: string
-  drugs: string
+  general_health: string
+  on_diet: string
+  on_drugs: string
+  comments: string
+  visit_date: string
+  patient_id: string
+  vital_id: string
 }
 
 export default function GeneralAssessmentForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { patients } = usePatients()
+  const { getPatientById } = usePatients()
   const formId = useId()
 
-  const currentPatient = patients.find((p) => p.id === id) || {
-    id: id || '1',
-    name: 'Patient Record',
-    age: 32,
-    mrn: '521',
+  const currentPatient = (id ? getPatientById(id) : undefined) || {
+    id: 1,
+    firstname: "John",
+    lastname: "Doe",
+    dob: "1992-05-14",
   }
 
+  const storedVitalId = localStorage.getItem(STORAGE_VITAL_ID_KEY) || '1'
+
   const [formData, setFormData] = useState<GeneralAssessmentData>({
-    chiefComplaint: '',
-    duration: '',
-    bloodGlucose: '95',
-    generalHealth: 'Stable',
-    allergies: 'None',
-    medications: 'None',
-    smokingStatus: 'Non-smoker',
-    activityLevel: 'Moderate',
-    assessmentNotes: '',
-    date: new Date().toISOString().split('T')[0],
-    drugs: 'No',
+    general_health: 'Stable',
+    on_diet: 'No',
+    on_drugs: 'No',
+    comments: '',
+    visit_date: new Date().toISOString().split('T')[0],
+    patient_id: id || '1',
+    vital_id: storedVitalId,
   })
 
-  const [submitted, setSubmitted] = useState(false)
+  const [isAlreadySubmitted, setIsAlreadySubmitted] = useState(false)
+
+  useEffect(() => {
+    const patientId = id || String(currentPatient.id)
+    const alreadySubmitted = generalAssessmentDb.hasSubmissionToday(patientId, formData.visit_date)
+    setIsAlreadySubmitted(alreadySubmitted)
+    if (alreadySubmitted) {
+      toast.info('General assessment has already been submitted for this patient today.', {
+        toastId: `general-${patientId}-${formData.visit_date}`,
+      })
+    }
+  }, [id, currentPatient.id, formData.visit_date])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -53,9 +61,27 @@ export default function GeneralAssessmentForm() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
+    const patientId = id || String(currentPatient.id)
+
+    if (generalAssessmentDb.hasSubmissionToday(patientId, formData.visit_date)) {
+      toast.info('General assessment has already been submitted for this patient today.')
+      setIsAlreadySubmitted(true)
+      return
+    }
+
+    await generalAssessmentDb.saveAssessment({
+      patient_id: patientId,
+      vital_id: formData.vital_id,
+      visit_date: formData.visit_date,
+      general_health: formData.general_health,
+      on_diet: formData.on_diet,
+      on_drugs: formData.on_drugs,
+      comments: formData.comments,
+    })
+
+    toast.success('General assessment saved')
     setTimeout(() => {
       navigate('/patients')
     }, 800)
@@ -82,7 +108,7 @@ export default function GeneralAssessmentForm() {
               General Assessment
             </h2>
             <p className="mt-2 text-xs font-medium text-white/80 leading-relaxed">
-              Evaluate general clinical health, symptoms, allergies, and lifestyle factors for {currentPatient.name}.
+              Evaluate general clinical health, symptoms, allergies, and lifestyle factors for {currentPatient.firstname}.
             </p>
           </div>
         </div>
@@ -99,18 +125,13 @@ export default function GeneralAssessmentForm() {
                   </h1>
                   <div className='flex items-center gap-2 mt-2 '>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Patient: <strong className="text-gray-800 dark:text-gray-200">{currentPatient.name}</strong>
+                      Patient: <strong className="text-gray-800 dark:text-gray-200">{currentPatient.firstname} {currentPatient.lastname}</strong>
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Age: {currentPatient.age} yrs
+                      Age: {calculateAge(currentPatient.dob)} yrs
                     </p>
                   </div>
                 </div>
-                {submitted && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Saved! Redirecting...
-                  </span>
-                )}
               </div>
 
               {/* Form Grid */}
@@ -123,8 +144,8 @@ export default function GeneralAssessmentForm() {
                   <input
                     id={`${formId}-date`}
                     type="date"
-                    name="date"
-                    value={formData.date}
+                    name="visit_date"
+                    value={formData.visit_date}
                     onChange={handleChange}
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                     required
@@ -144,9 +165,9 @@ export default function GeneralAssessmentForm() {
                       >
                         <input
                           type="radio"
-                          name="generalHealth"
+                          name="general_health"
                           value={condition}
-                          checked={formData.generalHealth === condition}
+                          checked={formData.general_health === condition}
                           onChange={handleChange}
                           className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-600 dark:border-gray-600 dark:bg-gray-800"
                         />
@@ -156,6 +177,7 @@ export default function GeneralAssessmentForm() {
                   </div>
                 </div>
 
+                {/* On drugs */}
                 <div>
                   <label htmlFor={`${formId}-drugs`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Are you currently using any drugs
@@ -168,9 +190,9 @@ export default function GeneralAssessmentForm() {
                       >
                         <input
                           type="radio"
-                          name="drugs"
+                          name="on_drugs"
                           value={condition}
-                          checked={formData.drugs === condition}
+                          checked={formData.on_drugs === condition}
                           onChange={handleChange}
                           className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-600 dark:border-gray-600 dark:bg-gray-800"
                         />
@@ -180,20 +202,19 @@ export default function GeneralAssessmentForm() {
                   </div>
                 </div>
 
-
-                {/* Assessment Notes */}
+                {/* Comments / Notes */}
                 <div className="sm:col-span-2">
-                  <label htmlFor={`${formId}-assessmentNotes`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-comments`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Comments
                   </label>
                   <textarea
-                    id={`${formId}-assessmentNotes`}
-                    name="assessmentNotes"
+                    id={`${formId}-comments`}
+                    name="comments"
                     rows={3}
-                    value={formData.assessmentNotes}
+                    value={formData.comments}
                     onChange={handleChange}
                     placeholder="Enter diagnostic summary and clinical findings..."
-                    className="mt-1.5 w-full  border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                    className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   />
                 </div>
               </div>
@@ -210,9 +231,11 @@ export default function GeneralAssessmentForm() {
               </button>
               <button
                 type="submit"
-                className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                disabled={isAlreadySubmitted}
+                className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={isAlreadySubmitted ? 'Assessment already submitted for today' : ''}
               >
-                Complete Assessment
+                {isAlreadySubmitted ? 'Already Submitted' : 'Complete Assessment'}
               </button>
             </div>
           </form>
@@ -223,3 +246,4 @@ export default function GeneralAssessmentForm() {
 }
 
 export { GeneralAssessmentForm }
+

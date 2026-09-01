@@ -1,79 +1,87 @@
-import { useState, useId } from 'react'
+import { useState, useId, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router'
+import { toast } from 'react-toastify'
 import bannerImg from '../assets/assessment-banner.jpg'
 import { usePatients } from '../hooks/usePatients.tsx'
+import { calculateAge } from '../lib/utils/calculateAge.tsx'
+import { overweightAssessmentDb, STORAGE_VITAL_ID_KEY } from '../lib/database.tsx'
 
 export interface OverweightAssessmentData {
-  weight: string
-  height: string
-  bmi: string
-  waistCircumference: string
-  hipCircumference: string
-  targetWeight: string
-  dietaryHabits: string
-  familyHistory: string
-  nutritionPlan: string
-  date: string
-  generalHealth: string
-  drugs: string
-  assessmentNotes: string
+  general_health: string
+  on_drugs: string
+  comments: string
+  visit_date: string
+  patient_id: string
+  vital_id: string
 }
 
 export default function OverweightAssessmentForm() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { patients } = usePatients()
+  const { getPatientById } = usePatients()
   const formId = useId()
 
-  const currentPatient = patients.find((p) => p.id === id) || {
-    id: id || '1',
-    name: 'Patient Record',
-    age: 32,
-    bmi: 28.1,
-    mrn: '521',
+  const currentPatient = (id ? getPatientById(id) : undefined) || {
+    id: 1,
+    firstname: "John",
+    lastname: "Doe",
+    dob: "1992-05-14",
   }
 
+  const storedVitalId = localStorage.getItem(STORAGE_VITAL_ID_KEY) || '1'
+
   const [formData, setFormData] = useState<OverweightAssessmentData>({
-    weight: '82',
-    height: '172',
-    bmi: String(currentPatient.bmi || '27.7'),
-    waistCircumference: '88',
-    hipCircumference: '102',
-    targetWeight: '72',
-    dietaryHabits: 'High carb, low vegetable intake',
-    familyHistory: 'Yes - Type 2 Diabetes',
-    nutritionPlan: '',
-    date: new Date().toISOString().split('T')[0],
-    generalHealth: '',
-    drugs: '',
-    assessmentNotes: '',
+    general_health: 'Good',
+    on_drugs: 'No',
+    comments: '',
+    visit_date: new Date().toISOString().split('T')[0],
+    patient_id: id || '1',
+    vital_id: storedVitalId,
   })
 
-  const [submitted, setSubmitted] = useState(false)
+  const [isAlreadySubmitted, setIsAlreadySubmitted] = useState(false)
+
+  useEffect(() => {
+    const patientId = id || String(currentPatient.id)
+    const alreadySubmitted = overweightAssessmentDb.hasSubmissionToday(patientId, formData.visit_date)
+    setIsAlreadySubmitted(alreadySubmitted)
+    if (alreadySubmitted) {
+      toast.info('Overweight assessment has already been submitted for this patient today.', {
+        toastId: `overweight-${patientId}-${formData.visit_date}`,
+      })
+    }
+  }, [id, currentPatient.id, formData.visit_date])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target
-    setFormData((prev) => {
-      const updated = { ...prev, [name]: value }
-      if (name === 'weight' || name === 'height') {
-        const w = parseFloat(name === 'weight' ? value : prev.weight)
-        const h = parseFloat(name === 'height' ? value : prev.height) / 100
-        if (w > 0 && h > 0) {
-          updated.bmi = (w / (h * h)).toFixed(1)
-        }
-      }
-      return updated
-    })
+    setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
+    const patientId = id || String(currentPatient.id)
+
+    if (overweightAssessmentDb.hasSubmissionToday(patientId, formData.visit_date)) {
+      toast.info('Overweight assessment has already been submitted for this patient today.')
+      setIsAlreadySubmitted(true)
+      return
+    }
+
+    await overweightAssessmentDb.saveAssessment({
+      patient_id: patientId,
+      vital_id: formData.vital_id,
+      visit_date: formData.visit_date,
+      general_health: formData.general_health,
+      on_drugs: formData.on_drugs,
+      comments: formData.comments,
+    })
+
+    toast.success('Overweight assessment saved successfully! Redirecting...')
     setTimeout(() => {
       navigate('/patients')
-    }, 1000)
+    }, 800)
   }
 
   return (
@@ -97,7 +105,7 @@ export default function OverweightAssessmentForm() {
               Overweight Assessment
             </h2>
             <p className="mt-2 text-xs font-medium text-white/80 leading-relaxed">
-              Analyze body composition, nutritional risks, and lifestyle management for {currentPatient.name}.
+              Analyze body composition, nutritional risks, and lifestyle management for {currentPatient.firstname}.
             </p>
           </div>
         </div>
@@ -114,18 +122,13 @@ export default function OverweightAssessmentForm() {
                   </h1>
                   <div className='flex items-center gap-2 mt-2 '>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Patient: <strong className="text-gray-800 dark:text-gray-200">{currentPatient.name}</strong>
+                      Patient: <strong className="text-gray-800 dark:text-gray-200">{currentPatient.firstname} {currentPatient.lastname}</strong>
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                      Age: {currentPatient.age} yrs
+                      Age: {calculateAge(currentPatient.dob)} yrs
                     </p>
                   </div>
                 </div>
-                {submitted && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Assessment Completed! Returning to dashboard...
-                  </span>
-                )}
               </div>
 
               {/* Form Grid */}
@@ -133,14 +136,14 @@ export default function OverweightAssessmentForm() {
 
                 {/* Visit date */}
                 <div>
-                  <label htmlFor={`${formId}-date`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-visit_date`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Visit Date
                   </label>
                   <input
-                    id={`${formId}-date`}
+                    id={`${formId}-visit_date`}
                     type="date"
-                    name="date"
-                    value={formData.date}
+                    name="visit_date"
+                    value={formData.visit_date}
                     onChange={handleChange}
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                     required
@@ -149,7 +152,7 @@ export default function OverweightAssessmentForm() {
 
                 {/* General Condition */}
                 <div>
-                  <label htmlFor={`${formId}-generalHealth`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-general_health`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     General Health Condition
                   </label>
                   <div className="mt-1.5 flex items-center h-10 flex-wrap gap-4">
@@ -160,9 +163,9 @@ export default function OverweightAssessmentForm() {
                       >
                         <input
                           type="radio"
-                          name="generalHealth"
+                          name="general_health"
                           value={condition}
-                          checked={formData.generalHealth === condition}
+                          checked={formData.general_health === condition}
                           onChange={handleChange}
                           className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-600 dark:border-gray-600 dark:bg-gray-800"
                         />
@@ -172,8 +175,9 @@ export default function OverweightAssessmentForm() {
                   </div>
                 </div>
 
+                {/* On Diet to lose weight */}
                 <div>
-                  <label htmlFor={`${formId}-drugs`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-on_drugs`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Have you ever been on a diet to lose weight?
                   </label>
                   <div className="mt-1.5 flex flex-wrap h-10 items-center gap-4">
@@ -184,9 +188,9 @@ export default function OverweightAssessmentForm() {
                       >
                         <input
                           type="radio"
-                          name="drugs"
+                          name="on_drugs"
                           value={condition}
-                          checked={formData.drugs === condition}
+                          checked={formData.on_drugs === condition}
                           onChange={handleChange}
                           className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-600 dark:border-gray-600 dark:bg-gray-800"
                         />
@@ -196,20 +200,19 @@ export default function OverweightAssessmentForm() {
                   </div>
                 </div>
 
-
-                {/* Assessment Notes */}
+                {/* Comments / Notes */}
                 <div className="sm:col-span-2">
-                  <label htmlFor={`${formId}-assessmentNotes`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-comments`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Comments
                   </label>
                   <textarea
-                    id={`${formId}-assessmentNotes`}
-                    name="assessmentNotes"
+                    id={`${formId}-comments`}
+                    name="comments"
                     rows={3}
-                    value={formData.assessmentNotes}
+                    value={formData.comments}
                     onChange={handleChange}
                     placeholder="Enter diagnostic summary and clinical findings..."
-                    className="mt-1.5 w-full  border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+                    className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                   />
                 </div>
               </div>
@@ -219,16 +222,18 @@ export default function OverweightAssessmentForm() {
             <div className="mt-8 flex items-center justify-between pt-6 border-t border-gray-100 dark:border-gray-800">
               <button
                 type="button"
-                onClick={() => navigate(`/vitals/${id || currentPatient.id}`)}
+                onClick={() => navigate(`/vitals/${id || String(currentPatient.id)}`)}
                 className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
               >
                 Previous
               </button>
               <button
                 type="submit"
-                className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95"
+                disabled={isAlreadySubmitted}
+                className="cursor-pointer bg-indigo-600 px-8 py-2.5 text-xs font-semibold text-white shadow-xs transition hover:bg-indigo-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                title={isAlreadySubmitted ? 'Assessment already submitted for today' : ''}
               >
-                Complete Assessment
+                {isAlreadySubmitted ? 'Already Submitted' : 'Complete Assessment'}
               </button>
             </div>
           </form>
@@ -239,3 +244,4 @@ export default function OverweightAssessmentForm() {
 }
 
 export { OverweightAssessmentForm }
+

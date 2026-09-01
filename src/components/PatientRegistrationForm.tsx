@@ -1,34 +1,26 @@
 import { useState, useId } from 'react'
 import { useNavigate } from 'react-router'
+import { toast } from 'react-toastify'
 import bannerImg from '../assets/assessment-banner.jpg'
 import { usePatients } from '../hooks/usePatients.tsx'
-
-export interface PatientRegistrationData {
-  firstName: string
-  middleName: string
-  lastName: string
-  gender: 'Male' | 'Female'
-  dob: string
-  idNumber: string
-  registrationDate: string
-}
+import type { Patient } from '../hooks/usePatients.tsx'
 
 export default function PatientRegistrationForm() {
   const navigate = useNavigate()
   const { addPatient } = usePatients()
   const formId = useId()
 
-  const [formData, setFormData] = useState<PatientRegistrationData>({
-    firstName: '',
-    middleName: '',
-    lastName: '',
+  const [formData, setFormData] = useState<Omit<Patient, 'id'>>({
+    firstname: '',
+    middlename: '',
+    lastname: '',
     gender: 'Male',
     dob: '',
-    idNumber: '',
-    registrationDate: new Date().toISOString().split('T')[0],
+    unique: '',
+    reg_date: new Date().toISOString().split('T')[0],
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   })
-
-  const [submitted, setSubmitted] = useState(false)
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -37,41 +29,22 @@ export default function PatientRegistrationForm() {
     setFormData((prev) => ({ ...prev, [name]: value }))
   }
 
-  const calculateAge = (dobString: string): number => {
-    if (!dobString) return 30
-    const birthDate = new Date(dobString)
-    const today = new Date()
-    let age = today.getFullYear() - birthDate.getFullYear()
-    const monthDiff = today.getMonth() - birthDate.getMonth()
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--
-    }
-    return age > 0 ? age : 1
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
-
-    const fullName = [formData.firstName, formData.middleName, formData.lastName]
-      .filter(Boolean)
-      .join(' ')
-
-    const age = calculateAge(formData.dob)
 
     const newPatient = addPatient({
-      name: fullName || 'New Patient',
-      firstName: formData.firstName,
-      middleName: formData.middleName,
-      lastName: formData.lastName,
+      firstname: formData.firstname,
+      middlename: formData.middlename,
+      lastname: formData.lastname,
       gender: formData.gender,
-      age,
-      bmi: 0,
       dob: formData.dob,
-      mrn: formData.idNumber || '521',
-      lastAssessmentDate: formData.registrationDate,
-      registrationDate: formData.registrationDate,
+      unique: formData.unique,
+      reg_date: formData.reg_date,
+      created_at: formData.created_at,
+      updated_at: formData.updated_at,
     })
+
+    toast.success('Patient registered successfully! Proceeding to Vitals...')
 
     setTimeout(() => {
       navigate(`/vitals/${newPatient.id}`)
@@ -118,25 +91,20 @@ export default function PatientRegistrationForm() {
                     Please provide the patient demographic and identification details below.
                   </p>
                 </div>
-                {submitted && (
-                  <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
-                    Registered! Proceeding to Vitals...
-                  </span>
-                )}
               </div>
 
               {/* Form Grid */}
               <div className="mt-6 grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
                 {/* First Name */}
                 <div>
-                  <label htmlFor={`${formId}-firstName`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-firstname`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     First Name
                   </label>
                   <input
-                    id={`${formId}-firstName`}
+                    id={`${formId}-firstname`}
                     type="text"
-                    name="firstName"
-                    value={formData.firstName}
+                    name="firstname"
+                    value={formData.firstname}
                     onChange={handleChange}
                     placeholder="e.g. John"
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -146,14 +114,14 @@ export default function PatientRegistrationForm() {
 
                 {/* Middle Name */}
                 <div>
-                  <label htmlFor={`${formId}-middleName`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-middlename`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Middle Name
                   </label>
                   <input
-                    id={`${formId}-middleName`}
+                    id={`${formId}-middlename`}
                     type="text"
-                    name="middleName"
-                    value={formData.middleName}
+                    name="middlename"
+                    value={formData.middlename}
                     onChange={handleChange}
                     placeholder="e.g. Robert (Optional)"
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -162,14 +130,14 @@ export default function PatientRegistrationForm() {
 
                 {/* Last Name */}
                 <div>
-                  <label htmlFor={`${formId}-lastName`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-lastname`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Last Name
                   </label>
                   <input
-                    id={`${formId}-lastName`}
+                    id={`${formId}-lastname`}
                     type="text"
-                    name="lastName"
-                    value={formData.lastName}
+                    name="lastname"
+                    value={formData.lastname}
                     onChange={handleChange}
                     placeholder="e.g. Doe"
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -220,14 +188,14 @@ export default function PatientRegistrationForm() {
 
                 {/* Patient ID Number */}
                 <div>
-                  <label htmlFor={`${formId}-idNumber`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                    Patient ID / MRN Number
+                  <label htmlFor={`${formId}-unique`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                    Patient ID Number
                   </label>
                   <input
-                    id={`${formId}-idNumber`}
+                    id={`${formId}-unique`}
                     type="text"
-                    name="idNumber"
-                    value={formData.idNumber}
+                    name="unique"
+                    value={formData.unique}
                     onChange={handleChange}
                     placeholder="e.g. 521-8902"
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
@@ -237,14 +205,14 @@ export default function PatientRegistrationForm() {
 
                 {/* Registration Date */}
                 <div>
-                  <label htmlFor={`${formId}-registrationDate`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor={`${formId}-reg_date`} className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                     Registration Date
                   </label>
                   <input
-                    id={`${formId}-registrationDate`}
+                    id={`${formId}-reg_date`}
                     type="date"
-                    name="registrationDate"
-                    value={formData.registrationDate}
+                    name="reg_date"
+                    value={formData.reg_date}
                     onChange={handleChange}
                     className="mt-1.5 w-full border border-gray-200 bg-gray-50/70 px-3.5 py-2.5 text-xs text-gray-900 placeholder-gray-400 transition focus:border-indigo-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-600/20 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
                     required
