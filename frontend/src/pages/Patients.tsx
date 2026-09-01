@@ -19,7 +19,8 @@ import {
     X,
     MoreVertical,
 } from 'lucide-react'
-import { usePatients, type DashboardPatient } from '../hooks/usePatients.tsx'
+import { usePatients } from '../hooks/usePatients.tsx'
+import type { DashboardPatient } from '../lib/database.tsx'
 
 export default function Patients() {
     const { patients } = usePatients()
